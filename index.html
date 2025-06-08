@@ -7,6 +7,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fflate@0.7.4/umd/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FBXLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/libs/draco/draco_decoder.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/libs/draco/DRACOLoader.js"></script>
@@ -455,7 +457,7 @@
                     <canvas class="viewer-canvas" id="canvas1"></canvas>
                 </div>
                 <div class="dish-controls">
-                    <button class="btn btn-ar" onclick="openAR('Bœuf Wellington')">
+                    <button class="btn btn-ar" onclick="launchAR('Bœuf Wellington')">
                         <span class="btn-ar-icon">📱</span>
                         Visualiser en AR
                     </button>
@@ -477,7 +479,7 @@
                     <canvas class="viewer-canvas" id="canvas2"></canvas>
                 </div>
                 <div class="dish-controls">
-                    <button class="btn btn-ar" onclick="openAR('Homard Thermidor')">
+                    <button class="btn btn-ar" onclick="launchAR('Homard Thermidor')">
                         <span class="btn-ar-icon">📱</span>
                         Visualiser en AR
                     </button>
@@ -499,7 +501,7 @@
                     <canvas class="viewer-canvas" id="canvas3"></canvas>
                 </div>
                 <div class="dish-controls">
-                    <button class="btn btn-ar" onclick="openAR('Soufflé Grand Marnier')">
+                    <button class="btn btn-ar" onclick="launchAR('Soufflé Grand Marnier')">
                         <span class="btn-ar-icon">📱</span>
                         Visualiser en AR
                     </button>
@@ -521,7 +523,7 @@
                     <canvas class="viewer-canvas" id="canvas4"></canvas>
                 </div>
                 <div class="dish-controls">
-                    <button class="btn btn-ar" onclick="openAR('Saumon Gravlax')">
+                    <button class="btn btn-ar" onclick="launchAR('Saumon Gravlax')">
                         <span class="btn-ar-icon">📱</span>
                         Visualiser en AR
                     </button>
@@ -529,18 +531,6 @@
             </article>
         </div>
     </section>
-
-    <div class="ar-modal" id="arModal">
-        <button class="close-ar" onclick="closeAR()">×</button>
-        <div class="ar-content">
-            <div class="ar-preview">📱</div>
-            <h3 id="arDishName">Expérience AR</h3>
-            <p>Pointez votre appareil vers une surface plane pour découvrir ce plat en réalité augmentée avec tous ses détails.</p>
-            <button class="btn btn-ar" onclick="launchAR()" style="margin: 0;">
-                Lancer l'expérience AR
-            </button>
-        </div>
-    </div>
 
     <script>
         const scenes = {};
@@ -577,23 +567,23 @@
 
         const dishConfigs = {
             'canvas1': {
-                modelPath: './assets/models/2025-06-07.glb',
-                usdzPath: './assets/models/2025-06-07.glb.usdz',
+                modelPath: './assets/models/sushi_bar_food_0614040004_texture.glb',
+                usdzPath: './assets/models/sushi_bar_food_0614035636_texture.usdz',
                 name: 'Bœuf Wellington'
             },
             'canvas2': {
-                modelPath: './assets/models/2025-06-07.glb',
-                usdzPath: './assets/models/2025-06-07.glb.usdz',
+                modelPath: './assets/models/sushi_bar_food_0614040004_texture.glb',
+                usdzPath: './assets/models/sushi_bar_food_0614035636_texture.usdz',
                 name: 'Homard Thermidor'
             },
             'canvas3': {
-                modelPath: './assets/models/2025-06-07.glb',
-                usdzPath: './assets/models/2025-06-07.glb.usdz',
+                modelPath: './assets/models/sushi_bar_food_0614040004_texture.glb',
+                usdzPath: './assets/models/sushi_bar_food_0614035636_texture.usdz',
                 name: 'Soufflé Grand Marnier'
             },
             'canvas4': {
-                modelPath: './assets/models/2025-06-07.glb',
-                usdzPath: './assets/models/2025-06-07.glb.usdz',
+                modelPath: './assets/models/sushi_bar_food_0614040004_texture.glb',
+                usdzPath: './assets/models/sushi_bar_food_0614035636_texture.usdz',
                 name: 'Saumon Gravlax'
             }
         };
@@ -647,7 +637,7 @@
                     return;
                 }
 
-                const modelPath = './assets/models/2025-06-07.glb';
+                const modelPath = './assets/models/sushi_bar_food_0614040004_texture.glb';
                 
                 try {
                     // Vérifier la taille du fichier
@@ -663,15 +653,13 @@
                         const dracoLoader = new THREE.DRACOLoader();
                         dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
                         loader.setDRACOLoader(dracoLoader);
-                    } else {
-                        console.warn('DRACOLoader non disponible, le modèle sera chargé sans compression');
                     }
                     
                     loader.load(
                         modelPath,
                         function (gltf) {
                             console.log('Modèle GLB chargé avec succès');
-                            loadedModel = gltf.scene.clone();
+                            loadedModel = gltf.scene;
                             
                             // Optimiser le modèle
                             loadedModel.traverse((node) => {
@@ -682,26 +670,16 @@
                                             optimizeGeometry(node.geometry);
                                         }
                                         
-                                        // Optimiser les matériaux
+                                        // Gérer les matériaux
                                         if (node.material) {
                                             if (Array.isArray(node.material)) {
                                                 node.material.forEach(mat => {
                                                     if (mat) {
                                                         mat.needsUpdate = true;
-                                                        // Désactiver les ombres si le matériau est transparent
-                                                        if (mat.transparent) {
-                                                            node.castShadow = false;
-                                                            node.receiveShadow = false;
-                                                        }
                                                     }
                                                 });
                                             } else {
                                                 node.material.needsUpdate = true;
-                                                // Désactiver les ombres si le matériau est transparent
-                                                if (node.material.transparent) {
-                                                    node.castShadow = false;
-                                                    node.receiveShadow = false;
-                                                }
                                             }
                                         }
                                         
@@ -935,7 +913,7 @@
             }
         }
 
-        async function launchAR() {
+        async function launchAR(dishName) {
             try {
                 const arSupport = await checkARSupport();
                 
@@ -944,9 +922,15 @@
                     return;
                 }
 
+                // Stocker le modèle 3D actuel
+                const canvasId = Object.keys(scenes).find(key => dishConfigs[key].name === dishName);
+                if (canvasId && scenes[canvasId]) {
+                    currentARModel = scenes[canvasId].dishGroup;
+                }
+
                 if (arSupport === 'quicklook') {
                     // Pour iOS, utiliser Quick Look
-                    const modelUrl = './assets/models/2025-06-07.glb.usdz';
+                    const modelUrl = './assets/models/sushi_bar_food_0614035636_texture.usdz';
                     
                     // Créer un lien AR
                     const link = document.createElement('a');
@@ -964,7 +948,7 @@
                     try {
                         const session = await navigator.xr.requestSession('immersive-ar', {
                             requiredFeatures: ['hit-test'],
-                            domOverlay: { root: document.getElementById('arModal') }
+                            domOverlay: { root: document.body }
                         });
 
                         const canvas = document.createElement('canvas');
@@ -1015,26 +999,6 @@
                 console.error('Erreur lors du lancement de l\'AR:', error);
                 showNotification('Erreur lors du lancement de la réalité augmentée');
             }
-        }
-
-        function openAR(dishName) {
-            const modal = document.getElementById('arModal');
-            document.getElementById('arDishName').textContent = dishName;
-            
-            // Stocker le modèle 3D actuel
-            const canvasId = Object.keys(scenes).find(key => dishConfigs[key].name === dishName);
-            if (canvasId && scenes[canvasId]) {
-                currentARModel = scenes[canvasId].dishGroup;
-            }
-            
-            // Lancer directement l'AR
-            launchAR();
-        }
-
-        function closeAR() {
-            const modal = document.getElementById('arModal');
-            modal.classList.remove('active');
-            setTimeout(() => modal.style.display = 'none', 300);
         }
 
         // Initialisation optimisée
