@@ -7,7 +7,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/webxr/ARButton.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -521,7 +520,9 @@
             <div class="ar-preview">📱</div>
             <h3 id="arDishName">Expérience AR</h3>
             <p>Pointez votre appareil vers une surface plane pour découvrir ce plat en réalité augmentée avec tous ses détails.</p>
-            <div id="arButtonContainer"></div>
+            <button class="btn btn-ar" onclick="launchAR()" style="margin: 0;">
+                Lancer l'expérience AR
+            </button>
         </div>
     </div>
 
@@ -530,10 +531,6 @@
         const rotationStates = {};
         const initialRotations = {};
         let currentARModel = null;
-        let arScene = null;
-        let arCamera = null;
-        let arRenderer = null;
-        let arController = null;
 
         const dishConfigs = {
             'canvas1': {
@@ -567,7 +564,7 @@
                     function (geometry) {
                         console.log('Modèle STL chargé avec succès');
                         const material = new THREE.MeshPhongMaterial({ 
-                            color: 0x8B4513,
+                            color: 0x8B4513, // Brun foncé pour la viande
                             shininess: 30,
                             specular: 0x111111
                         });
@@ -779,95 +776,165 @@
             resizeObserver.observe(canvas);
         }
 
-        function initAR() {
-            arScene = new THREE.Scene();
-            arCamera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
-            
-            arRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-            arRenderer.setPixelRatio(window.devicePixelRatio);
-            arRenderer.setSize(window.innerWidth, window.innerHeight);
-            arRenderer.xr.enabled = true;
-            document.body.appendChild(arRenderer.domElement);
-
-            // Éclairage
-            const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
-            light.position.set(0, 1, 0);
-            arScene.add(light);
-
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-            directionalLight.position.set(0, 1, 0);
-            arScene.add(directionalLight);
-
-            // Gestionnaire de surface
-            arController = new THREE.XRController();
-            arScene.add(arController);
-
-            // Animation loop
-            arRenderer.setAnimationLoop(function() {
-                arRenderer.render(arScene, arCamera);
-            });
-        }
-
-        function loadARModel(modelPath) {
-            const loader = new THREE.STLLoader();
-            loader.load(modelPath, function(geometry) {
-                const material = new THREE.MeshPhongMaterial({
-                    color: 0x8B4513,
-                    shininess: 30,
-                    specular: 0x111111
-                });
-                const mesh = new THREE.Mesh(geometry, material);
-                
-                // Centrer et redimensionner le modèle
-                geometry.computeBoundingBox();
-                const box = geometry.boundingBox;
-                const center = box.getCenter(new THREE.Vector3());
-                const size = box.getSize(new THREE.Vector3());
-                const maxDim = Math.max(size.x, size.y, size.z);
-                const scale = 0.5 / maxDim;
-                
-                mesh.position.copy(center).multiplyScalar(-1);
-                mesh.scale.set(scale, scale, scale);
-                mesh.rotation.x = -Math.PI / 2;
-                
-                currentARModel = mesh;
-                arScene.add(mesh);
-            });
-        }
-
-        function launchAR() {
-            if (!arScene) {
-                initAR();
+        function resetView(canvasId) {
+            if (scenes[canvasId]) {
+                const { camera, controls } = scenes[canvasId];
+                camera.position.set(0, 2, 4);
+                camera.lookAt(0, 0, 0);
+                controls.reset();
             }
+        }
 
-            // Créer le bouton AR
-            const button = ARButton.createButton(arRenderer, {
-                onSessionStart: function() {
-                    // Positionner le modèle devant l'utilisateur
-                    if (currentARModel) {
-                        currentARModel.position.set(0, 0, -0.5);
-                        currentARModel.visible = true;
-                    }
-                },
-                onSessionEnd: function() {
-                    if (currentARModel) {
-                        currentARModel.visible = false;
+        // Fonction pour vérifier le support WebXR
+        async function checkXRSupport() {
+            if ('xr' in navigator) {
+                try {
+                    const isSupported = await navigator.xr.isSessionSupported('immersive-ar');
+                    return isSupported;
+                } catch (error) {
+                    console.error('Erreur lors de la vérification du support WebXR:', error);
+                    return false;
+                }
+            }
+            return false;
+        }
+
+        // Fonction pour initialiser la session AR
+        async function initARSession() {
+            try {
+                const session = await navigator.xr.requestSession('immersive-ar', {
+                    requiredFeatures: ['hit-test', 'dom-overlay'],
+                    domOverlay: { root: document.getElementById('arModal') }
+                });
+
+                const canvas = document.createElement('canvas');
+                const gl = canvas.getContext('webgl', { xrCompatible: true });
+                
+                const renderer = new THREE.WebGLRenderer({ 
+                    canvas: canvas, 
+                    context: gl,
+                    antialias: true,
+                    alpha: true
+                });
+                renderer.setPixelRatio(window.devicePixelRatio);
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                renderer.xr.enabled = true;
+
+                const scene = new THREE.Scene();
+                const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
+
+                // Éclairage pour la scène AR
+                const ambientLight = new THREE.AmbientLight(0x404040, 0.4);
+                scene.add(ambientLight);
+
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+                directionalLight.position.set(0, 1, 0);
+                scene.add(directionalLight);
+
+                // Ajouter le modèle 3D actuel à la scène AR
+                if (currentARModel) {
+                    scene.add(currentARModel.clone());
+                }
+
+                // Gestionnaire de clic pour le placement du modèle
+                let reticle = null;
+                const controller = renderer.xr.getController(0);
+                controller.addEventListener('select', onSelect);
+                scene.add(controller);
+
+                // Créer le réticule
+                const geometry = new THREE.RingGeometry(0.15, 0.2, 32).rotateX(-Math.PI / 2);
+                const material = new THREE.MeshBasicMaterial({ color: 0xffffff });
+                reticle = new THREE.Mesh(geometry, material);
+                reticle.matrixAutoUpdate = false;
+                reticle.visible = false;
+                scene.add(reticle);
+
+                // Fonction de sélection
+                function onSelect() {
+                    if (reticle.visible) {
+                        const position = new THREE.Vector3();
+                        reticle.getWorldPosition(position);
+                        if (currentARModel) {
+                            const model = currentARModel.clone();
+                            model.position.copy(position);
+                            scene.add(model);
+                        }
                     }
                 }
-            });
 
-            // Ajouter le bouton au conteneur
-            const container = document.getElementById('arButtonContainer');
-            container.innerHTML = '';
-            container.appendChild(button);
+                // Hit testing
+                const hitTestSourceRequested = false;
+                const hitTestSource = null;
 
-            // Charger le modèle
-            loadARModel('./assets/models/uploads_files_3897839_Makaron.stl');
+                function onHitTestResultReady(hitTestResults) {
+                    if (hitTestResults.length > 0) {
+                        const hit = hitTestResults[0];
+                        const pose = hit.getPose(referenceSpace);
+                        reticle.visible = true;
+                        reticle.matrix.fromArray(pose.transform.matrix);
+                    } else {
+                        reticle.visible = false;
+                    }
+                }
+
+                function onHitTestResultEmpty() {
+                    reticle.visible = false;
+                }
+
+                // Boucle de rendu
+                renderer.setAnimationLoop(() => {
+                    renderer.render(scene, camera);
+                });
+
+                session.addEventListener('end', () => {
+                    renderer.setAnimationLoop(null);
+                    renderer.dispose();
+                });
+
+            } catch (error) {
+                console.error('Erreur lors de l\'initialisation de la session AR:', error);
+                showNotification('Erreur lors de l\'initialisation de la réalité augmentée');
+            }
+        }
+
+        function showNotification(message) {
+            const notification = document.createElement('div');
+            notification.innerHTML = `
+                <div style="position: fixed; top: 2rem; right: 2rem; background: #2C2C2C; color: white; padding: 1rem 1.5rem; border-radius: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); z-index: 10000; max-width: 300px;">
+                    <h4 style="margin: 0 0 0.5rem 0; font-family: 'Playfair Display', serif;">Notification</h4>
+                    <p style="margin: 0; font-size: 0.9rem; line-height: 1.4;">${message}</p>
+                </div>
+            `;
+            document.body.appendChild(notification);
+            setTimeout(() => notification.remove(), 5000);
+        }
+
+        async function launchAR() {
+            const isSupported = await checkXRSupport();
+            if (!isSupported) {
+                showNotification('Votre navigateur ne supporte pas la réalité augmentée');
+                return;
+            }
+
+            try {
+                await initARSession();
+            } catch (error) {
+                console.error('Erreur lors du lancement de l\'AR:', error);
+                showNotification('Erreur lors du lancement de la réalité augmentée');
+            }
         }
 
         function openAR(dishName) {
             const modal = document.getElementById('arModal');
             document.getElementById('arDishName').textContent = dishName;
+            
+            // Stocker le modèle 3D actuel
+            const canvasId = Object.keys(scenes).find(key => dishConfigs[key].name === dishName);
+            if (canvasId && scenes[canvasId]) {
+                currentARModel = scenes[canvasId].dishGroup;
+            }
+            
             modal.style.display = 'flex';
             setTimeout(() => modal.classList.add('active'), 10);
         }
@@ -876,17 +943,6 @@
             const modal = document.getElementById('arModal');
             modal.classList.remove('active');
             setTimeout(() => modal.style.display = 'none', 300);
-            
-            // Nettoyer la scène AR si elle existe
-            if (arRenderer) {
-                arRenderer.setAnimationLoop(null);
-                document.body.removeChild(arRenderer.domElement);
-                arScene = null;
-                arCamera = null;
-                arRenderer = null;
-                arController = null;
-                currentARModel = null;
-            }
         }
 
         // Initialisation
