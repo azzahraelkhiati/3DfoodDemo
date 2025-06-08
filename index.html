@@ -408,6 +408,24 @@
             text-transform: uppercase;
             letter-spacing: 0.05em;
         }
+
+        .loading-progress {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 4px;
+            background: var(--primary-gold);
+            transition: width 0.3s ease;
+        }
+
+        .loading-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: var(--medium-gray);
+            font-size: 0.9rem;
+        }
     </style>
 </head>
 <body>
@@ -532,6 +550,20 @@
         const rotationStates = {};
         const initialRotations = {};
         let currentARModel = null;
+        let loadedModel = null;
+
+        // Fonction pour afficher les notifications
+        function showNotification(message) {
+            const notification = document.createElement('div');
+            notification.innerHTML = `
+                <div style="position: fixed; top: 2rem; right: 2rem; background: #2C2C2C; color: white; padding: 1rem 1.5rem; border-radius: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); z-index: 10000; max-width: 300px;">
+                    <h4 style="margin: 0 0 0.5rem 0; font-family: 'Playfair Display', serif;">Notification</h4>
+                    <p style="margin: 0; font-size: 0.9rem; line-height: 1.4;">${message}</p>
+                </div>
+            `;
+            document.body.appendChild(notification);
+            setTimeout(() => notification.remove(), 5000);
+        }
 
         const dishConfigs = {
             'canvas1': {
@@ -556,43 +588,116 @@
             }
         };
 
-        function createProfessionalDish(dishGroup, config, canvasId) {
-            // Charger le modèle GLB
-            const loader = new THREE.GLTFLoader();
-            console.log('Chargement du modèle GLB:', config.modelPath);
-            
-            loader.load(
-                config.modelPath,
-                function (gltf) {
-                    console.log('Modèle GLB chargé avec succès');
-                    const model = gltf.scene;
-                    
-                    // Centrer et redimensionner le modèle
-                    const box = new THREE.Box3().setFromObject(model);
-                    const center = box.getCenter(new THREE.Vector3());
-                    const size = box.getSize(new THREE.Vector3());
-                    const maxDim = Math.max(size.x, size.y, size.z);
-                    const scale = 2 / maxDim;
-                    
-                    model.position.copy(center).multiplyScalar(-1);
-                    model.scale.set(scale, scale, scale);
-                    
-                    model.traverse((node) => {
-                        if (node.isMesh) {
-                            node.castShadow = true;
-                            node.receiveShadow = true;
-                        }
-                    });
-                    
-                    dishGroup.add(model);
-                },
-                function (xhr) {
-                    console.log((xhr.loaded / xhr.total * 100) + '% chargé');
-                },
-                function (error) {
-                    console.error('Erreur lors du chargement du modèle:', error);
+        // Fonction pour vérifier la taille du fichier
+        async function checkFileSize(url) {
+            try {
+                const response = await fetch(url, { method: 'HEAD' });
+                const size = response.headers.get('content-length');
+                return parseInt(size);
+            } catch (error) {
+                console.error('Erreur lors de la vérification de la taille du fichier:', error);
+                return null;
+            }
+        }
+
+        // Fonction pour charger le modèle une seule fois
+        async function loadModel() {
+            return new Promise(async (resolve, reject) => {
+                if (loadedModel) {
+                    resolve(loadedModel);
+                    return;
                 }
-            );
+
+                const modelPath = './assets/models/DexH- birthday cake - thekitchenfairy icing chocolate drizzle pudding.glb';
+                
+                // Vérifier la taille du fichier
+                const fileSize = await checkFileSize(modelPath);
+                if (fileSize && fileSize > 10 * 1024 * 1024) { // Plus de 10MB
+                    showNotification('Le modèle 3D est très volumineux. Le chargement peut prendre un certain temps.');
+                }
+
+                const loader = new THREE.GLTFLoader();
+                loader.setDRACOLoader(new THREE.DRACOLoader().setDecoderPath('https://www.gstatic.com/draco/v1/decoders/'));
+                
+                loader.load(
+                    modelPath,
+                    function (gltf) {
+                        console.log('Modèle GLB chargé avec succès');
+                        loadedModel = gltf.scene.clone();
+                        
+                        // Optimiser le modèle
+                        loadedModel.traverse((node) => {
+                            if (node.isMesh) {
+                                node.castShadow = true;
+                                node.receiveShadow = true;
+                                // Optimiser la géométrie
+                                if (node.geometry) {
+                                    node.geometry.computeBoundingSphere();
+                                    node.geometry.computeBoundingBox();
+                                    // Réduire la qualité si nécessaire
+                                    if (node.geometry.attributes.position.count > 10000) {
+                                        node.geometry = node.geometry.clone();
+                                        node.geometry.setDrawRange(0, 10000);
+                                    }
+                                }
+                            }
+                        });
+                        
+                        resolve(loadedModel);
+                    },
+                    function (xhr) {
+                        const progress = (xhr.loaded / xhr.total * 100);
+                        console.log(`${progress.toFixed(2)}% chargé`);
+                        updateLoadingProgress(progress);
+                    },
+                    function (error) {
+                        console.error('Erreur lors du chargement du modèle:', error);
+                        showNotification('Erreur lors du chargement du modèle 3D. Veuillez réessayer.');
+                        reject(error);
+                    }
+                );
+            });
+        }
+
+        // Fonction pour mettre à jour la progression du chargement
+        function updateLoadingProgress(progress) {
+            const containers = document.querySelectorAll('.viewer-container');
+            containers.forEach(container => {
+                let progressBar = container.querySelector('.loading-progress');
+                if (!progressBar) {
+                    progressBar = document.createElement('div');
+                    progressBar.className = 'loading-progress';
+                    container.appendChild(progressBar);
+                }
+                progressBar.style.width = `${progress}%`;
+            });
+        }
+
+        function createProfessionalDish(dishGroup, config, canvasId) {
+            if (!loadedModel) {
+                // Afficher un message de chargement
+                const container = document.querySelector(`#${canvasId}`).parentElement;
+                container.innerHTML = '<div class="loading-message">Chargement du modèle...</div>';
+                return;
+            }
+
+            // Cloner le modèle déjà chargé
+            const model = loadedModel.clone();
+            
+            // Centrer et redimensionner le modèle
+            const box = new THREE.Box3().setFromObject(model);
+            const center = box.getCenter(new THREE.Vector3());
+            const size = box.getSize(new THREE.Vector3());
+            const maxDim = Math.max(size.x, size.y, size.z);
+            const scale = 2 / maxDim;
+            
+            model.position.copy(center).multiplyScalar(-1);
+            model.scale.set(scale, scale, scale);
+            
+            // Ajouter une rotation pour mieux voir le modèle
+            model.rotation.y = Math.PI / 4;
+            
+            dishGroup.add(model);
         }
 
         function initScene(canvasId) {
@@ -730,6 +835,23 @@
                     const canvasId = Object.keys(scenes).find(key => dishConfigs[key].name === document.getElementById('arDishName').textContent);
                     if (canvasId && dishConfigs[canvasId]) {
                         const modelUrl = dishConfigs[canvasId].usdzPath;
+                        
+                        // Vérifier si le fichier USDZ existe et sa taille
+                        try {
+                            const response = await fetch(modelUrl, { method: 'HEAD' });
+                            if (!response.ok) {
+                                throw new Error('Fichier USDZ non trouvé');
+                            }
+                            const size = parseInt(response.headers.get('content-length'));
+                            if (size > 20 * 1024 * 1024) { // Plus de 20MB
+                                showNotification('Le fichier AR est très volumineux. L\'ouverture peut prendre un certain temps.');
+                            }
+                        } catch (error) {
+                            console.error('Erreur lors de la vérification du fichier USDZ:', error);
+                            showNotification('Erreur lors de l\'accès au fichier AR. Veuillez réessayer.');
+                            return;
+                        }
+
                         const anchor = document.createElement('a');
                         anchor.setAttribute('rel', 'ar');
                         anchor.setAttribute('href', modelUrl);
@@ -781,10 +903,17 @@
         }
 
         // Initialisation
-        window.addEventListener('load', () => {
-            setTimeout(() => {
+        window.addEventListener('load', async () => {
+            try {
+                // Charger le modèle une seule fois
+                await loadModel();
+                
+                // Initialiser les scènes
                 ['canvas1', 'canvas2', 'canvas3', 'canvas4'].forEach(initScene);
-            }, 100);
+            } catch (error) {
+                console.error('Erreur lors du chargement initial:', error);
+                showNotification('Erreur lors du chargement des modèles 3D');
+            }
         });
 
         // Fermeture modal avec Escape
