@@ -787,16 +787,31 @@
 
         // Fonction pour vérifier le support WebXR
         async function checkXRSupport() {
-            if ('xr' in navigator) {
-                try {
-                    const isSupported = await navigator.xr.isSessionSupported('immersive-ar');
-                    return isSupported;
-                } catch (error) {
-                    console.error('Erreur lors de la vérification du support WebXR:', error);
+            if (!navigator.xr) {
+                showNotification('WebXR n\'est pas disponible dans votre navigateur. Veuillez utiliser Chrome sur Android ou Safari sur iOS.');
+                return false;
+            }
+
+            try {
+                const isSupported = await navigator.xr.isSessionSupported('immersive-ar');
+                if (!isSupported) {
+                    showNotification('La réalité augmentée n\'est pas supportée sur votre appareil. Assurez-vous d\'utiliser un appareil mobile avec une caméra.');
                     return false;
                 }
+
+                // Vérifier si nous sommes sur un appareil mobile
+                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                if (!isMobile) {
+                    showNotification('La réalité augmentée nécessite un appareil mobile avec une caméra. Veuillez utiliser un smartphone ou une tablette.');
+                    return false;
+                }
+
+                return true;
+            } catch (error) {
+                console.error('Erreur lors de la vérification du support WebXR:', error);
+                showNotification('Erreur lors de la vérification du support AR: ' + error.message);
+                return false;
             }
-            return false;
         }
 
         // Fonction pour initialiser la session AR
@@ -911,17 +926,25 @@
         }
 
         async function launchAR() {
-            const isSupported = await checkXRSupport();
-            if (!isSupported) {
-                showNotification('Votre navigateur ne supporte pas la réalité augmentée');
-                return;
-            }
-
             try {
+                const isSupported = await checkXRSupport();
+                if (!isSupported) {
+                    return;
+                }
+
+                // Demander la permission d'accès à la caméra
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    stream.getTracks().forEach(track => track.stop()); // Arrêter le flux immédiatement
+                } catch (error) {
+                    showNotification('L\'accès à la caméra est nécessaire pour la réalité augmentée. Veuillez autoriser l\'accès à la caméra.');
+                    return;
+                }
+
                 await initARSession();
             } catch (error) {
                 console.error('Erreur lors du lancement de l\'AR:', error);
-                showNotification('Erreur lors du lancement de la réalité augmentée');
+                showNotification('Erreur lors du lancement de la réalité augmentée: ' + error.message);
             }
         }
 
