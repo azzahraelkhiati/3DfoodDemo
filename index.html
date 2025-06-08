@@ -8,6 +8,7 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/libs/draco/draco_decoder.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/libs/draco/DRACOLoader.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <style>
@@ -547,6 +548,19 @@
         const initialRotations = {};
         let currentARModel = null;
         let loadedModel = null;
+        let loadingManager = new THREE.LoadingManager();
+
+        // Configuration du LoadingManager
+        loadingManager.onProgress = function(url, itemsLoaded, itemsTotal) {
+            const progress = (itemsLoaded / itemsTotal * 100);
+            console.log(`Chargement: ${progress.toFixed(2)}%`);
+            updateLoadingProgress(progress);
+        };
+
+        loadingManager.onError = function(url) {
+            console.error('Erreur lors du chargement:', url);
+            showNotification('Erreur lors du chargement des ressources 3D');
+        };
 
         // Fonction pour afficher les notifications
         function showNotification(message) {
@@ -596,6 +610,35 @@
             }
         }
 
+        // Fonction pour optimiser la géométrie
+        function optimizeGeometry(geometry) {
+            if (!geometry) return;
+            
+            try {
+                // Calculer les bounding boxes et spheres
+                geometry.computeBoundingSphere();
+                geometry.computeBoundingBox();
+                
+                // Calculer les normales si nécessaire
+                if (!geometry.attributes.normal) {
+                    geometry.computeVertexNormals();
+                }
+                
+                // Optimiser les indices si présents
+                if (geometry.index) {
+                    geometry.computeVertexNormals();
+                }
+                
+                // Mettre à jour les attributs
+                geometry.attributes.position.needsUpdate = true;
+                if (geometry.attributes.normal) {
+                    geometry.attributes.normal.needsUpdate = true;
+                }
+            } catch (error) {
+                console.warn('Erreur lors de l\'optimisation de la géométrie:', error);
+            }
+        }
+
         // Fonction pour charger le modèle une seule fois
         async function loadModel() {
             return new Promise(async (resolve, reject) => {
@@ -606,158 +649,258 @@
 
                 const modelPath = './assets/models/2025-06-07.glb';
                 
-                // Vérifier la taille du fichier
-                const fileSize = await checkFileSize(modelPath);
-                if (fileSize && fileSize > 10 * 1024 * 1024) { // Plus de 10MB
-                    showNotification('Le modèle 3D est très volumineux. Le chargement peut prendre un certain temps.');
-                }
-
-                const loader = new THREE.GLTFLoader();
-                
-                loader.load(
-                    modelPath,
-                    function (gltf) {
-                        console.log('Modèle GLB chargé avec succès');
-                        loadedModel = gltf.scene.clone();
-                        
-                        // Optimiser le modèle
-                        loadedModel.traverse((node) => {
-                            if (node.isMesh) {
-                                node.castShadow = true;
-                                node.receiveShadow = true;
-                                // Optimiser la géométrie
-                                if (node.geometry) {
-                                    node.geometry.computeBoundingSphere();
-                                    node.geometry.computeBoundingBox();
-                                }
-                            }
-                        });
-                        
-                        resolve(loadedModel);
-                    },
-                    function (xhr) {
-                        const progress = (xhr.loaded / xhr.total * 100);
-                        console.log(`${progress.toFixed(2)}% chargé`);
-                        updateLoadingProgress(progress);
-                    },
-                    function (error) {
-                        console.error('Erreur lors du chargement du modèle:', error);
-                        showNotification('Erreur lors du chargement du modèle 3D. Veuillez réessayer.');
-                        reject(error);
+                try {
+                    // Vérifier la taille du fichier
+                    const fileSize = await checkFileSize(modelPath);
+                    if (fileSize && fileSize > 10 * 1024 * 1024) { // Plus de 10MB
+                        showNotification('Le modèle 3D est volumineux. Le chargement peut prendre un certain temps.');
                     }
-                );
+
+                    const loader = new THREE.GLTFLoader(loadingManager);
+                    
+                    // Configuration du loader pour gérer les erreurs de données manquantes
+                    if (typeof THREE.DRACOLoader !== 'undefined') {
+                        const dracoLoader = new THREE.DRACOLoader();
+                        dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
+                        loader.setDRACOLoader(dracoLoader);
+                    } else {
+                        console.warn('DRACOLoader non disponible, le modèle sera chargé sans compression');
+                    }
+                    
+                    loader.load(
+                        modelPath,
+                        function (gltf) {
+                            console.log('Modèle GLB chargé avec succès');
+                            loadedModel = gltf.scene.clone();
+                            
+                            // Optimiser le modèle
+                            loadedModel.traverse((node) => {
+                                if (node.isMesh) {
+                                    try {
+                                        // Optimiser la géométrie
+                                        if (node.geometry) {
+                                            optimizeGeometry(node.geometry);
+                                        }
+                                        
+                                        // Optimiser les matériaux
+                                        if (node.material) {
+                                            if (Array.isArray(node.material)) {
+                                                node.material.forEach(mat => {
+                                                    if (mat) {
+                                                        mat.needsUpdate = true;
+                                                        // Désactiver les ombres si le matériau est transparent
+                                                        if (mat.transparent) {
+                                                            node.castShadow = false;
+                                                            node.receiveShadow = false;
+                                                        }
+                                                    }
+                                                });
+                                            } else {
+                                                node.material.needsUpdate = true;
+                                                // Désactiver les ombres si le matériau est transparent
+                                                if (node.material.transparent) {
+                                                    node.castShadow = false;
+                                                    node.receiveShadow = false;
+                                                }
+                                            }
+                                        }
+                                        
+                                        // Optimiser les ombres
+                                        node.castShadow = true;
+                                        node.receiveShadow = true;
+                                        
+                                        // Optimiser le frustum culling
+                                        node.frustumCulled = true;
+                                    } catch (error) {
+                                        console.warn('Erreur lors de l\'optimisation du mesh:', error);
+                                    }
+                                }
+                            });
+                            
+                            resolve(loadedModel);
+                        },
+                        function (xhr) {
+                            const progress = (xhr.loaded / xhr.total * 100);
+                            console.log(`${progress.toFixed(2)}% chargé`);
+                            updateLoadingProgress(progress);
+                        },
+                        function (error) {
+                            console.error('Erreur lors du chargement du modèle:', error);
+                            showNotification('Erreur lors du chargement du modèle 3D. Veuillez réessayer.');
+                            reject(error);
+                        }
+                    );
+                } catch (error) {
+                    console.error('Erreur lors du chargement:', error);
+                    reject(error);
+                }
             });
         }
 
         // Fonction pour mettre à jour la progression du chargement
         function updateLoadingProgress(progress) {
-            // Ne rien faire, la barre de progression est supprimée
+            const loadingElements = document.querySelectorAll('.loading-message');
+            loadingElements.forEach(element => {
+                element.textContent = `Chargement: ${progress.toFixed(0)}%`;
+            });
         }
 
         function createProfessionalDish(dishGroup, config, canvasId) {
             if (!loadedModel) {
-                // Afficher un message de chargement
                 const container = document.querySelector(`#${canvasId}`).parentElement;
                 container.innerHTML = '<div class="loading-message">Chargement du modèle...</div>';
                 return;
             }
 
-            // Cloner le modèle déjà chargé
-            const model = loadedModel.clone();
-            
-            // Centrer et redimensionner le modèle
-            const box = new THREE.Box3().setFromObject(model);
-            const center = box.getCenter(new THREE.Vector3());
-            const size = box.getSize(new THREE.Vector3());
-            const maxDim = Math.max(size.x, size.y, size.z);
-            const scale = 2 / maxDim;
-            
-            model.position.copy(center).multiplyScalar(-1);
-            model.scale.set(scale, scale, scale);
-            
-            // Ajouter une rotation pour mieux voir le modèle
-            model.rotation.y = Math.PI / 4;
-            
-            dishGroup.add(model);
+            try {
+                // Cloner le modèle déjà chargé
+                const model = loadedModel.clone();
+                
+                // Centrer et redimensionner le modèle
+                const box = new THREE.Box3().setFromObject(model);
+                const center = box.getCenter(new THREE.Vector3());
+                const size = box.getSize(new THREE.Vector3());
+                const maxDim = Math.max(size.x, size.y, size.z);
+                const scale = 2 / maxDim;
+                
+                model.position.copy(center).multiplyScalar(-1);
+                model.scale.set(scale, scale, scale);
+                
+                // Ajouter une rotation pour mieux voir le modèle
+                model.rotation.y = Math.PI / 4;
+                
+                dishGroup.add(model);
+            } catch (error) {
+                console.error('Erreur lors de la création du plat:', error);
+                showNotification('Erreur lors de l\'affichage du modèle 3D');
+            }
         }
 
         function initScene(canvasId) {
             const canvas = document.getElementById(canvasId);
             if (!canvas) return;
 
-            const scene = new THREE.Scene();
-            scene.background = new THREE.Color(0xFAFBFC);
-            
-            const camera = new THREE.PerspectiveCamera(50, canvas.clientWidth / canvas.clientHeight, 0.1, 1000);
-            const renderer = new THREE.WebGLRenderer({ 
-                canvas: canvas, 
-                antialias: true,
-                alpha: false
-            });
-            
-            renderer.setSize(canvas.clientWidth, canvas.clientHeight);
-            renderer.shadowMap.enabled = true;
-            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            try {
+                const scene = new THREE.Scene();
+                scene.background = new THREE.Color(0xFAFBFC);
+                
+                const camera = new THREE.PerspectiveCamera(50, canvas.clientWidth / canvas.clientHeight, 0.1, 1000);
+                const renderer = new THREE.WebGLRenderer({ 
+                    canvas: canvas, 
+                    antialias: true,
+                    alpha: false,
+                    powerPreference: 'high-performance'
+                });
+                
+                renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+                renderer.shadowMap.enabled = true;
+                renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+                renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-            // Ajout des contrôles OrbitControls
-            const controls = new THREE.OrbitControls(camera, renderer.domElement);
-            controls.enableDamping = true;
-            controls.dampingFactor = 0.05;
-            controls.screenSpacePanning = false;
-            controls.minDistance = 3;
-            controls.maxDistance = 10;
-            controls.maxPolarAngle = Math.PI / 2;
+                // Optimisation des contrôles
+                const controls = new THREE.OrbitControls(camera, renderer.domElement);
+                controls.enableDamping = true;
+                controls.dampingFactor = 0.05;
+                controls.screenSpacePanning = false;
+                controls.minDistance = 3;
+                controls.maxDistance = 10;
+                controls.maxPolarAngle = Math.PI / 2;
+                controls.rotateSpeed = 0.5;
 
-            // Éclairage professionnel
-            const ambientLight = new THREE.AmbientLight(0x404040, 0.4);
-            scene.add(ambientLight);
+                // Éclairage optimisé
+                const ambientLight = new THREE.AmbientLight(0x404040, 0.4);
+                scene.add(ambientLight);
 
-            const mainLight = new THREE.DirectionalLight(0xffffff, 0.8);
-            mainLight.position.set(5, 8, 5);
-            mainLight.castShadow = true;
-            mainLight.shadow.mapSize.width = 2048;
-            mainLight.shadow.mapSize.height = 2048;
-            mainLight.shadow.camera.near = 0.1;
-            mainLight.shadow.camera.far = 50;
-            mainLight.shadow.camera.left = -10;
-            mainLight.shadow.camera.right = 10;
-            mainLight.shadow.camera.top = 10;
-            mainLight.shadow.camera.bottom = -10;
-            scene.add(mainLight);
+                const mainLight = new THREE.DirectionalLight(0xffffff, 0.8);
+                mainLight.position.set(5, 8, 5);
+                mainLight.castShadow = true;
+                mainLight.shadow.mapSize.width = 1024; // Réduit pour de meilleures performances
+                mainLight.shadow.mapSize.height = 1024;
+                mainLight.shadow.camera.near = 0.1;
+                mainLight.shadow.camera.far = 50;
+                mainLight.shadow.camera.left = -10;
+                mainLight.shadow.camera.right = 10;
+                mainLight.shadow.camera.top = 10;
+                mainLight.shadow.camera.bottom = -10;
+                scene.add(mainLight);
 
-            const fillLight = new THREE.DirectionalLight(0xffffff, 0.3);
-            fillLight.position.set(-5, 3, -5);
-            scene.add(fillLight);
+                const fillLight = new THREE.DirectionalLight(0xffffff, 0.3);
+                fillLight.position.set(-5, 3, -5);
+                scene.add(fillLight);
 
-            // Création du plat
-            const dishGroup = new THREE.Group();
-            const config = dishConfigs[canvasId];
-            createProfessionalDish(dishGroup, config, canvasId);
-            
-            scene.add(dishGroup);
+                // Création du plat
+                const dishGroup = new THREE.Group();
+                const config = dishConfigs[canvasId];
+                createProfessionalDish(dishGroup, config, canvasId);
+                
+                scene.add(dishGroup);
 
-            camera.position.set(0, 2, 4);
-            camera.lookAt(0, 0, 0);
+                camera.position.set(0, 2, 4);
+                camera.lookAt(0, 0, 0);
 
-            function animate() {
-                requestAnimationFrame(animate);
-                controls.update();
-                renderer.render(scene, camera);
+                let animationFrameId;
+                function animate() {
+                    animationFrameId = requestAnimationFrame(animate);
+                    controls.update();
+                    renderer.render(scene, camera);
+                }
+
+                animate();
+                scenes[canvasId] = { scene, camera, renderer, dishGroup, controls, animationFrameId };
+
+                // Responsive optimisé
+                const resizeObserver = new ResizeObserver(() => {
+                    const width = canvas.clientWidth;
+                    const height = canvas.clientHeight;
+                    camera.aspect = width / height;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(width, height);
+                });
+                resizeObserver.observe(canvas);
+            } catch (error) {
+                console.error('Erreur lors de l\'initialisation de la scène:', error);
+                showNotification('Erreur lors de l\'initialisation de la scène 3D');
             }
+        }
 
-            animate();
-            scenes[canvasId] = { scene, camera, renderer, dishGroup, controls };
-
-            // Responsive
-            const resizeObserver = new ResizeObserver(() => {
-                const width = canvas.clientWidth;
-                const height = canvas.clientHeight;
-                camera.aspect = width / height;
-                camera.updateProjectionMatrix();
-                renderer.setSize(width, height);
-            });
-            resizeObserver.observe(canvas);
+        // Fonction pour nettoyer les ressources
+        function cleanupScene(canvasId) {
+            if (scenes[canvasId]) {
+                const { scene, renderer, controls, animationFrameId } = scenes[canvasId];
+                
+                // Arrêter l'animation
+                if (animationFrameId) {
+                    cancelAnimationFrame(animationFrameId);
+                }
+                
+                // Nettoyer les contrôles
+                if (controls) {
+                    controls.dispose();
+                }
+                
+                // Nettoyer le renderer
+                if (renderer) {
+                    renderer.dispose();
+                }
+                
+                // Nettoyer la scène
+                if (scene) {
+                    scene.traverse((object) => {
+                        if (object.geometry) {
+                            object.geometry.dispose();
+                        }
+                        if (object.material) {
+                            if (Array.isArray(object.material)) {
+                                object.material.forEach(material => material.dispose());
+                            } else {
+                                object.material.dispose();
+                            }
+                        }
+                    });
+                }
+                
+                delete scenes[canvasId];
+            }
         }
 
         function resetView(canvasId) {
@@ -894,7 +1037,7 @@
             setTimeout(() => modal.style.display = 'none', 300);
         }
 
-        // Initialisation
+        // Initialisation optimisée
         window.addEventListener('load', async () => {
             try {
                 // Charger le modèle une seule fois
@@ -906,6 +1049,11 @@
                 console.error('Erreur lors du chargement initial:', error);
                 showNotification('Erreur lors du chargement des modèles 3D');
             }
+        });
+
+        // Nettoyage lors de la fermeture de la page
+        window.addEventListener('beforeunload', () => {
+            Object.keys(scenes).forEach(cleanupScene);
         });
 
         // Fermeture modal avec Escape
