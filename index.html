@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Démo restaurant</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-gold: #D4AF37;
+            --dark-charcoal: #2C2C2C;
+            --light-gray: #F8F9FA;
+            --medium-gray: #6C757D;
+            --white: #FFFFFF;
+            --shadow-light: rgba(0, 0, 0, 0.08);
+            --shadow-medium: rgba(0, 0, 0, 0.12);
+            --shadow-heavy: rgba(0, 0, 0, 0.16);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--light-gray);
+            color: var(--dark-charcoal);
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--dark-charcoal) 0%, #3A3A3A 100%);
+            padding: 5rem 0;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(212,175,55,0.1)" stroke-width="0.5"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
+            opacity: 0.3;
+        }
+
+        .header-content {
+            position: relative;
+            z-index: 1;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
+        .header h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 4rem;
+            font-weight: 700;
+            color: var(--white);
+            margin-bottom: 1rem;
+            letter-spacing: -0.02em;
+        }
+
+        .header .subtitle {
+            font-size: 1.125rem;
+            color: var(--primary-gold);
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .header .description {
+            font-size: 1.1rem;
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: 300;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .menu-section {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 6rem 2rem;
+        }
+
+        .section-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 2.5rem;
+            font-weight: 600;
+            text-align: center;
+            color: var(--dark-charcoal);
+            margin-bottom: 3rem;
+            position: relative;
+        }
+
+        .section-title::after {
+            content: '';
+            position: absolute;
+            bottom: -1rem;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 2px;
+            background: var(--primary-gold);
+        }
+
+        .menu-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 3rem;
+            margin-top: 4rem;
+        }
+
+        .dish-card {
+            background: var(--white);
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 24px var(--shadow-light);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid rgba(0, 0, 0, 0.04);
+        }
+
+        .dish-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 12px 40px var(--shadow-medium);
+        }
+
+        .dish-header {
+            padding: 2rem 2rem 1rem;
+            border-bottom: 1px solid #F1F3F4;
+        }
+
+        .dish-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--dark-charcoal);
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .dish-price {
+            font-family: 'Inter', sans-serif;
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--primary-gold);
+        }
+
+        .dish-description {
+            color: var(--medium-gray);
+            font-size: 0.95rem;
+            line-height: 1.6;
+            font-weight: 400;
+        }
+
+        .viewer-container {
+            height: 280px;
+            background: #FAFBFC;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .viewer-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .dish-controls {
+            padding: 1.5rem 2rem;
+            background: #FAFBFC;
+            border-top: 1px solid #F1F3F4;
+            display: flex;
+            justify-content: center;
+        }
+
+        .controls-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 6px;
+            font-weight: 500;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            font-family: 'Inter', sans-serif;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .btn-primary {
+            background: var(--dark-charcoal);
+            color: var(--white);
+            border: 1px solid var(--dark-charcoal);
+        }
+
+        .btn-primary:hover {
+            background: #1A1A1A;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px var(--shadow-medium);
+        }
+
+        .btn-secondary {
+            background: var(--white);
+            color: var(--dark-charcoal);
+            border: 1px solid #E9ECEF;
+        }
+
+        .btn-secondary:hover {
+            background: var(--light-gray);
+            border-color: var(--primary-gold);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px var(--shadow-light);
+        }
+
+        .btn-ar {
+            background: var(--dark-charcoal);
+            color: var(--white);
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 500;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-family: 'Inter', sans-serif;
+            width: auto;
+        }
+
+        .btn-ar:hover {
+            background: #1A1A1A;
+            transform: translateY(-1px);
+        }
+
+        .btn-ar:active {
+            transform: translateY(0);
+        }
+
+        .btn-ar-icon {
+            font-size: 1.1rem;
+        }
+
+        .loading-spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--white);
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .ar-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(44, 44, 44, 0.95);
+            backdrop-filter: blur(8px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .ar-modal.active {
+            opacity: 1;
+        }
+
+        .ar-content {
+            background: var(--white);
+            padding: 3rem;
+            border-radius: 12px;
+            text-align: center;
+            max-width: 480px;
+            margin: 2rem;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .ar-content h3 {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.75rem;
+            font-weight: 600;
+            color: var(--dark-charcoal);
+            margin-bottom: 1rem;
+        }
+
+        .ar-content p {
+            color: var(--medium-gray);
+            margin-bottom: 2rem;
+            line-height: 1.6;
+        }
+
+        .close-ar {
+            position: absolute;
+            top: 2rem;
+            right: 2rem;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: var(--white);
+            font-size: 1.5rem;
+            cursor: pointer;
+            border-radius: 50%;
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .close-ar:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: scale(1.1);
+        }
+
+        .ar-preview {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, var(--primary-gold), #B8941F);
+            border-radius: 50%;
+            margin: 0 auto 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2.5rem;
+            }
+            
+            .menu-grid {
+                grid-template-columns: 1fr;
+                gap: 2rem;
+            }
+            
+            .dish-card {
+                margin: 0 1rem;
+            }
+            
+            .controls-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .btn-ar {
+                grid-column: 1;
+            }
+        }
+
+        .quality-badge {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: var(--primary-gold);
+            color: var(--white);
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div class="subtitle">Restaurant Gastronomique</div>
+            <h1>Démo restaurant</h1>
+            <div class="description">
+                Découvrez nos plats en 3D et en réalité virtuelle
+            </div>
+        </div>
+    </header>
+
+    <section class="menu-section">
+        <h2 class="section-title">Nos Spécialités</h2>
+        
+        <div class="menu-grid">
+            <article class="dish-card">
+                <div class="dish-header">
+                    <div class="dish-title">
+                        Bœuf Wellington
+                        <span class="dish-price">48€</span>
+                    </div>
+                    <p class="dish-description">
+                        Filet de bœuf noble enrobé de duxelles de champignons sauvages et pâte feuilletée dorée, 
+                        accompagné d'une sauce au porto et légumes de saison.
+                    </p>
+                </div>
+                <div class="viewer-container">
+                    <canvas class="viewer-canvas" id="canvas1"></canvas>
+                </div>
+                <div class="dish-controls">
+                    <button class="btn btn-ar" onclick="openAR('Bœuf Wellington')">
+                        <span class="btn-ar-icon">📱</span>
+                        Visualiser en AR
+                    </button>
+                </div>
+            </article>
+
+            <article class="dish-card">
+                <div class="dish-header">
+                    <div class="dish-title">
+                        Homard Thermidor
+                        <span class="dish-price">65€</span>
+                    </div>
+                    <p class="dish-description">
+                        Homard breton gratiné au cognac et crème normande, rehaussé d'une pointe de caviar 
+                        et servi avec un risotto aux champignons.
+                    </p>
+                </div>
+                <div class="viewer-container">
+                    <canvas class="viewer-canvas" id="canvas2"></canvas>
+                </div>
+                <div class="dish-controls">
+                    <button class="btn btn-ar" onclick="openAR('Homard Thermidor')">
+                        <span class="btn-ar-icon">📱</span>
+                        Visualiser en AR
+                    </button>
+                </div>
+            </article>
+
+            <article class="dish-card">
+                <div class="dish-header">
+                    <div class="dish-title">
+                        Soufflé Grand Marnier
+                        <span class="dish-price">22€</span>
+                    </div>
+                    <p class="dish-description">
+                        Soufflé délicat au Grand Marnier avec cœur coulant à l'orange confite, 
+                        accompagné d'une glace vanille de Madagascar.
+                    </p>
+                </div>
+                <div class="viewer-container">
+                    <canvas class="viewer-canvas" id="canvas3"></canvas>
+                </div>
+                <div class="dish-controls">
+                    <button class="btn btn-ar" onclick="openAR('Soufflé Grand Marnier')">
+                        <span class="btn-ar-icon">📱</span>
+                        Visualiser en AR
+                    </button>
+                </div>
+            </article>
+
+            <article class="dish-card">
+                <div class="dish-header">
+                    <div class="dish-title">
+                        Saumon Gravlax
+                        <span class="dish-price">38€</span>
+                    </div>
+                    <p class="dish-description">
+                        Saumon sauvage mariné aux herbes nordiques, purée de petits pois à la menthe fraîche 
+                        et sauce hollandaise aux câpres.
+                    </p>
+                </div>
+                <div class="viewer-container">
+                    <canvas class="viewer-canvas" id="canvas4"></canvas>
+                </div>
+                <div class="dish-controls">
+                    <button class="btn btn-ar" onclick="openAR('Saumon Gravlax')">
+                        <span class="btn-ar-icon">📱</span>
+                        Visualiser en AR
+                    </button>
+                </div>
+            </article>
+        </div>
+    </section>
+
+    <div class="ar-modal" id="arModal">
+        <button class="close-ar" onclick="closeAR()">×</button>
+        <div class="ar-content">
+            <div class="ar-preview">📱</div>
+            <h3 id="arDishName">Expérience AR</h3>
+            <p>Pointez votre appareil vers une surface plane pour découvrir ce plat en réalité augmentée avec tous ses détails.</p>
+            <button class="btn btn-ar" onclick="launchAR()" style="margin: 0;">
+                Lancer l'expérience AR
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const scenes = {};
+        const rotationStates = {};
+        const initialRotations = {};
+
+        const dishConfigs = {
+            'canvas1': {
+                colors: [0x8B4513, 0xDEB887, 0x654321, 0xCD853F],
+                name: 'Bœuf Wellington'
+            },
+            'canvas2': {
+                colors: [0xFF6B35, 0xFF8E53, 0xF7931E, 0xFFB347],
+                name: 'Homard Thermidor'
+            },
+            'canvas3': {
+                colors: [0x3C1810, 0x8B4513, 0xDEB887, 0xF4A460],
+                name: 'Soufflé Grand Marnier'
+            },
+            'canvas4': {
+                colors: [0xFF69B4, 0xFFA07A, 0x98FB98, 0xFFB6C1],
+                name: 'Saumon Gravlax'
+            }
+        };
+
+        function createProfessionalDish(dishGroup, colors, canvasId) {
+            if (canvasId === 'canvas1') {
+                // Charger le modèle STL pour le Bœuf Wellington
+                const loader = new THREE.STLLoader();
+                const modelPath = './assets/models/uploads_files_3897839_Makaron.stl';
+                
+                console.log('Chargement du modèle STL:', modelPath);
+                
+                loader.load(
+                    modelPath,
+                    function (geometry) {
+                        console.log('Modèle STL chargé avec succès');
+                        const material = new THREE.MeshPhongMaterial({ 
+                            color: 0x8B4513, // Brun foncé pour la viande
+                            shininess: 30,
+                            specular: 0x111111
+                        });
+                        const mesh = new THREE.Mesh(geometry, material);
+                        
+                        // Centrer et redimensionner le modèle
+                        geometry.computeBoundingBox();
+                        const box = geometry.boundingBox;
+                        const center = box.getCenter(new THREE.Vector3());
+                        const size = box.getSize(new THREE.Vector3());
+                        const maxDim = Math.max(size.x, size.y, size.z);
+                        const scale = 2 / maxDim;
+                        
+                        mesh.position.copy(center).multiplyScalar(-1);
+                        mesh.scale.set(scale, scale, scale);
+                        mesh.rotation.x = -Math.PI / 2;
+                        
+                        mesh.castShadow = true;
+                        dishGroup.add(mesh);
+                    }
+                );
+            } else {
+                // Assiette élégante
+                const plateGeometry = new THREE.CylinderGeometry(2.2, 2.2, 0.08, 64);
+                const plateMaterial = new THREE.MeshPhongMaterial({ 
+                    color: 0xFFFFF8,
+                    shininess: 100,
+                    specular: 0x111111
+                });
+                const plate = new THREE.Mesh(plateGeometry, plateMaterial);
+                plate.position.y = -0.5;
+                plate.receiveShadow = true;
+                dishGroup.add(plate);
+
+                // Bordure dorée de l'assiette
+                const rimGeometry = new THREE.TorusGeometry(2.2, 0.02, 8, 32);
+                const rimMaterial = new THREE.MeshPhongMaterial({ 
+                    color: 0xD4AF37,
+                    shininess: 100
+                });
+                const rim = new THREE.Mesh(rimGeometry, rimMaterial);
+                rim.position.y = -0.46;
+                rim.rotation.x = Math.PI / 2;
+                dishGroup.add(rim);
+
+                if (canvasId === 'canvas2') {
+                    // Homard Thermidor
+                    const lobsterGeometry = new THREE.SphereGeometry(0.8, 32, 32);
+                    lobsterGeometry.scale(1, 0.4, 1.5);
+                    const lobsterMaterial = new THREE.MeshPhongMaterial({
+                        color: 0xFF6B35,
+                        shininess: 40,
+                        specular: 0x222222
+                    });
+                    const lobster = new THREE.Mesh(lobsterGeometry, lobsterMaterial);
+                    lobster.position.y = 0;
+                    lobster.castShadow = true;
+                    dishGroup.add(lobster);
+
+                    // Sauce
+                    const sauceGeometry = new THREE.PlaneGeometry(1.2, 1.2);
+                    const sauceMaterial = new THREE.MeshPhongMaterial({
+                        color: 0xFFE4C4,
+                        transparent: true,
+                        opacity: 0.8,
+                        shininess: 30
+                    });
+                    const sauce = new THREE.Mesh(sauceGeometry, sauceMaterial);
+                    sauce.rotation.x = -Math.PI / 2;
+                    sauce.position.y = -0.42;
+                    dishGroup.add(sauce);
+                } else if (canvasId === 'canvas3') {
+                    // Soufflé Grand Marnier
+                    const souffleGeometry = new THREE.SphereGeometry(0.7, 32, 32);
+                    souffleGeometry.scale(1, 1.2, 1);
+                    const souffleMaterial = new THREE.MeshPhongMaterial({
+                        color: 0xF5DEB3,
+                        shininess: 50,
+                        specular: 0x222222
+                    });
+                    const souffle = new THREE.Mesh(souffleGeometry, souffleMaterial);
+                    souffle.position.y = 0.2;
+                    souffle.castShadow = true;
+                    dishGroup.add(souffle);
+
+                    // Croute dorée
+                    const crustGeometry = new THREE.SphereGeometry(0.72, 32, 32);
+                    crustGeometry.scale(1, 0.3, 1);
+                    const crustMaterial = new THREE.MeshPhongMaterial({
+                        color: 0xDAA520,
+                        shininess: 60,
+                        specular: 0x333333
+                    });
+                    const crust = new THREE.Mesh(crustGeometry, crustMaterial);
+                    crust.position.y = 0.4;
+                    crust.castShadow = true;
+                    dishGroup.add(crust);
+                } else if (canvasId === 'canvas4') {
+                    // Saumon Gravlax
+                    const salmonGeometry = new THREE.BoxGeometry(1.5, 0.1, 0.8);
+                    const salmonMaterial = new THREE.MeshPhongMaterial({
+                        color: 0xFFA07A,
+                        shininess: 40,
+                        specular: 0x222222
+                    });
+                    const salmon = new THREE.Mesh(salmonGeometry, salmonMaterial);
+                    salmon.position.y = -0.4;
+                    salmon.castShadow = true;
+                    dishGroup.add(salmon);
+
+                    // Herbes et garniture
+                    for (let i = 0; i < 8; i++) {
+                        const herbGeometry = new THREE.CylinderGeometry(0.02, 0.02, 0.2, 8);
+                        const herbMaterial = new THREE.MeshPhongMaterial({
+                            color: 0x228B22,
+                            shininess: 30
+                        });
+                        const herb = new THREE.Mesh(herbGeometry, herbMaterial);
+                        const angle = (i / 8) * Math.PI * 2;
+                        const radius = 0.6;
+                        herb.position.x = Math.cos(angle) * radius;
+                        herb.position.z = Math.sin(angle) * radius;
+                        herb.position.y = -0.35;
+                        herb.rotation.x = Math.random() * 0.2;
+                        herb.rotation.z = Math.random() * 0.2;
+                        herb.castShadow = true;
+                        dishGroup.add(herb);
+                    }
+                }
+            }
+        }
+
+        function initScene(canvasId) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+
+            const scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xFAFBFC);
+            
+            const camera = new THREE.PerspectiveCamera(50, canvas.clientWidth / canvas.clientHeight, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({ 
+                canvas: canvas, 
+                antialias: true,
+                alpha: false
+            });
+            
+            renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+            // Ajout des contrôles OrbitControls
+            const controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.screenSpacePanning = false;
+            controls.minDistance = 3;
+            controls.maxDistance = 10;
+            controls.maxPolarAngle = Math.PI / 2;
+
+            // Éclairage professionnel
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.4);
+            scene.add(ambientLight);
+
+            const mainLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            mainLight.position.set(5, 8, 5);
+            mainLight.castShadow = true;
+            mainLight.shadow.mapSize.width = 2048;
+            mainLight.shadow.mapSize.height = 2048;
+            mainLight.shadow.camera.near = 0.1;
+            mainLight.shadow.camera.far = 50;
+            mainLight.shadow.camera.left = -10;
+            mainLight.shadow.camera.right = 10;
+            mainLight.shadow.camera.top = 10;
+            mainLight.shadow.camera.bottom = -10;
+            scene.add(mainLight);
+
+            const fillLight = new THREE.DirectionalLight(0xffffff, 0.3);
+            fillLight.position.set(-5, 3, -5);
+            scene.add(fillLight);
+
+            // Création du plat
+            const dishGroup = new THREE.Group();
+            const config = dishConfigs[canvasId];
+            createProfessionalDish(dishGroup, config.colors, canvasId);
+            
+            scene.add(dishGroup);
+
+            camera.position.set(0, 2, 4);
+            camera.lookAt(0, 0, 0);
+
+            function animate() {
+                requestAnimationFrame(animate);
+                controls.update();
+                renderer.render(scene, camera);
+            }
+
+            animate();
+            scenes[canvasId] = { scene, camera, renderer, dishGroup, controls };
+
+            // Responsive
+            const resizeObserver = new ResizeObserver(() => {
+                const width = canvas.clientWidth;
+                const height = canvas.clientHeight;
+                camera.aspect = width / height;
+                camera.updateProjectionMatrix();
+                renderer.setSize(width, height);
+            });
+            resizeObserver.observe(canvas);
+        }
+
+        function resetView(canvasId) {
+            if (scenes[canvasId]) {
+                const { camera, controls } = scenes[canvasId];
+                camera.position.set(0, 2, 4);
+                camera.lookAt(0, 0, 0);
+                controls.reset();
+            }
+        }
+
+        function openAR(dishName) {
+            const modal = document.getElementById('arModal');
+            document.getElementById('arDishName').textContent = dishName;
+            modal.style.display = 'flex';
+            setTimeout(() => modal.classList.add('active'), 10);
+        }
+
+        function closeAR() {
+            const modal = document.getElementById('arModal');
+            modal.classList.remove('active');
+            setTimeout(() => modal.style.display = 'none', 300);
+        }
+
+        function launchAR() {
+            const notification = document.createElement('div');
+            notification.innerHTML = `
+                <div style="position: fixed; top: 2rem; right: 2rem; background: #2C2C2C; color: white; padding: 1rem 1.5rem; border-radius: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); z-index: 10000; max-width: 300px;">
+                    <h4 style="margin: 0 0 0.5rem 0; font-family: 'Playfair Display', serif;">Expérience AR Activée</h4>
+                    <p style="margin: 0; font-size: 0.9rem; line-height: 1.4;">En production, cette fonctionnalité activerait :<br>
+                    • Caméra AR<br>
+                    • Détection de surface<br>
+                    • Rendu 3D en temps réel</p>
+                </div>
+            `;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 5000);
+            
+            closeAR();
+        }
+
+        // Initialisation
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                ['canvas1', 'canvas2', 'canvas3', 'canvas4'].forEach(initScene);
+            }, 100);
+        });
+
+        // Fermeture modal avec Escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeAR();
+        });
+    </script>
+</body>
+</html>
