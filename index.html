@@ -6,6 +6,7 @@
     <title>Démo restaurant</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <style>
@@ -534,167 +535,64 @@
 
         const dishConfigs = {
             'canvas1': {
-                colors: [0x8B4513, 0xDEB887, 0x654321, 0xCD853F],
+                modelPath: './assets/models/DexH- birthday cake - thekitchenfairy icing chocolate drizzle pudding.glb',
+                usdzPath: './assets/models/DexH- birthday cake - thekitchenfairy icing chocolate drizzle pudding.glb.usdz',
                 name: 'Bœuf Wellington'
             },
             'canvas2': {
-                colors: [0xFF6B35, 0xFF8E53, 0xF7931E, 0xFFB347],
+                modelPath: './assets/models/DexH- birthday cake - thekitchenfairy icing chocolate drizzle pudding.glb',
+                usdzPath: './assets/models/DexH- birthday cake - thekitchenfairy icing chocolate drizzle pudding.glb.usdz',
                 name: 'Homard Thermidor'
             },
             'canvas3': {
-                colors: [0x3C1810, 0x8B4513, 0xDEB887, 0xF4A460],
+                modelPath: './assets/models/DexH- birthday cake - thekitchenfairy icing chocolate drizzle pudding.glb',
+                usdzPath: './assets/models/DexH- birthday cake - thekitchenfairy icing chocolate drizzle pudding.glb.usdz',
                 name: 'Soufflé Grand Marnier'
             },
             'canvas4': {
-                colors: [0xFF69B4, 0xFFA07A, 0x98FB98, 0xFFB6C1],
+                modelPath: './assets/models/DexH- birthday cake - thekitchenfairy icing chocolate drizzle pudding.glb',
+                usdzPath: './assets/models/DexH- birthday cake - thekitchenfairy icing chocolate drizzle pudding.glb.usdz',
                 name: 'Saumon Gravlax'
             }
         };
 
-        function createProfessionalDish(dishGroup, colors, canvasId) {
-            if (canvasId === 'canvas1') {
-                // Charger le modèle STL pour le Bœuf Wellington
-                const loader = new THREE.STLLoader();
-                const modelPath = './assets/models/uploads_files_3897839_Makaron.stl';
-                
-                console.log('Chargement du modèle STL:', modelPath);
-                
-                loader.load(
-                    modelPath,
-                    function (geometry) {
-                        console.log('Modèle STL chargé avec succès');
-                        const material = new THREE.MeshPhongMaterial({ 
-                            color: 0x8B4513, // Brun foncé pour la viande
-                            shininess: 30,
-                            specular: 0x111111
-                        });
-                        const mesh = new THREE.Mesh(geometry, material);
-                        
-                        // Centrer et redimensionner le modèle
-                        geometry.computeBoundingBox();
-                        const box = geometry.boundingBox;
-                        const center = box.getCenter(new THREE.Vector3());
-                        const size = box.getSize(new THREE.Vector3());
-                        const maxDim = Math.max(size.x, size.y, size.z);
-                        const scale = 2 / maxDim;
-                        
-                        mesh.position.copy(center).multiplyScalar(-1);
-                        mesh.scale.set(scale, scale, scale);
-                        mesh.rotation.x = -Math.PI / 2;
-                        
-                        mesh.castShadow = true;
-                        dishGroup.add(mesh);
-                    }
-                );
-            } else {
-                // Assiette élégante
-                const plateGeometry = new THREE.CylinderGeometry(2.2, 2.2, 0.08, 64);
-                const plateMaterial = new THREE.MeshPhongMaterial({ 
-                    color: 0xFFFFF8,
-                    shininess: 100,
-                    specular: 0x111111
-                });
-                const plate = new THREE.Mesh(plateGeometry, plateMaterial);
-                plate.position.y = -0.5;
-                plate.receiveShadow = true;
-                dishGroup.add(plate);
-
-                // Bordure dorée de l'assiette
-                const rimGeometry = new THREE.TorusGeometry(2.2, 0.02, 8, 32);
-                const rimMaterial = new THREE.MeshPhongMaterial({ 
-                    color: 0xD4AF37,
-                    shininess: 100
-                });
-                const rim = new THREE.Mesh(rimGeometry, rimMaterial);
-                rim.position.y = -0.46;
-                rim.rotation.x = Math.PI / 2;
-                dishGroup.add(rim);
-
-                if (canvasId === 'canvas2') {
-                    // Homard Thermidor
-                    const lobsterGeometry = new THREE.SphereGeometry(0.8, 32, 32);
-                    lobsterGeometry.scale(1, 0.4, 1.5);
-                    const lobsterMaterial = new THREE.MeshPhongMaterial({
-                        color: 0xFF6B35,
-                        shininess: 40,
-                        specular: 0x222222
+        function createProfessionalDish(dishGroup, config, canvasId) {
+            // Charger le modèle GLB
+            const loader = new THREE.GLTFLoader();
+            console.log('Chargement du modèle GLB:', config.modelPath);
+            
+            loader.load(
+                config.modelPath,
+                function (gltf) {
+                    console.log('Modèle GLB chargé avec succès');
+                    const model = gltf.scene;
+                    
+                    // Centrer et redimensionner le modèle
+                    const box = new THREE.Box3().setFromObject(model);
+                    const center = box.getCenter(new THREE.Vector3());
+                    const size = box.getSize(new THREE.Vector3());
+                    const maxDim = Math.max(size.x, size.y, size.z);
+                    const scale = 2 / maxDim;
+                    
+                    model.position.copy(center).multiplyScalar(-1);
+                    model.scale.set(scale, scale, scale);
+                    
+                    model.traverse((node) => {
+                        if (node.isMesh) {
+                            node.castShadow = true;
+                            node.receiveShadow = true;
+                        }
                     });
-                    const lobster = new THREE.Mesh(lobsterGeometry, lobsterMaterial);
-                    lobster.position.y = 0;
-                    lobster.castShadow = true;
-                    dishGroup.add(lobster);
-
-                    // Sauce
-                    const sauceGeometry = new THREE.PlaneGeometry(1.2, 1.2);
-                    const sauceMaterial = new THREE.MeshPhongMaterial({
-                        color: 0xFFE4C4,
-                        transparent: true,
-                        opacity: 0.8,
-                        shininess: 30
-                    });
-                    const sauce = new THREE.Mesh(sauceGeometry, sauceMaterial);
-                    sauce.rotation.x = -Math.PI / 2;
-                    sauce.position.y = -0.42;
-                    dishGroup.add(sauce);
-                } else if (canvasId === 'canvas3') {
-                    // Soufflé Grand Marnier
-                    const souffleGeometry = new THREE.SphereGeometry(0.7, 32, 32);
-                    souffleGeometry.scale(1, 1.2, 1);
-                    const souffleMaterial = new THREE.MeshPhongMaterial({
-                        color: 0xF5DEB3,
-                        shininess: 50,
-                        specular: 0x222222
-                    });
-                    const souffle = new THREE.Mesh(souffleGeometry, souffleMaterial);
-                    souffle.position.y = 0.2;
-                    souffle.castShadow = true;
-                    dishGroup.add(souffle);
-
-                    // Croute dorée
-                    const crustGeometry = new THREE.SphereGeometry(0.72, 32, 32);
-                    crustGeometry.scale(1, 0.3, 1);
-                    const crustMaterial = new THREE.MeshPhongMaterial({
-                        color: 0xDAA520,
-                        shininess: 60,
-                        specular: 0x333333
-                    });
-                    const crust = new THREE.Mesh(crustGeometry, crustMaterial);
-                    crust.position.y = 0.4;
-                    crust.castShadow = true;
-                    dishGroup.add(crust);
-                } else if (canvasId === 'canvas4') {
-                    // Saumon Gravlax
-                    const salmonGeometry = new THREE.BoxGeometry(1.5, 0.1, 0.8);
-                    const salmonMaterial = new THREE.MeshPhongMaterial({
-                        color: 0xFFA07A,
-                        shininess: 40,
-                        specular: 0x222222
-                    });
-                    const salmon = new THREE.Mesh(salmonGeometry, salmonMaterial);
-                    salmon.position.y = -0.4;
-                    salmon.castShadow = true;
-                    dishGroup.add(salmon);
-
-                    // Herbes et garniture
-                    for (let i = 0; i < 8; i++) {
-                        const herbGeometry = new THREE.CylinderGeometry(0.02, 0.02, 0.2, 8);
-                        const herbMaterial = new THREE.MeshPhongMaterial({
-                            color: 0x228B22,
-                            shininess: 30
-                        });
-                        const herb = new THREE.Mesh(herbGeometry, herbMaterial);
-                        const angle = (i / 8) * Math.PI * 2;
-                        const radius = 0.6;
-                        herb.position.x = Math.cos(angle) * radius;
-                        herb.position.z = Math.sin(angle) * radius;
-                        herb.position.y = -0.35;
-                        herb.rotation.x = Math.random() * 0.2;
-                        herb.rotation.z = Math.random() * 0.2;
-                        herb.castShadow = true;
-                        dishGroup.add(herb);
-                    }
+                    
+                    dishGroup.add(model);
+                },
+                function (xhr) {
+                    console.log((xhr.loaded / xhr.total * 100) + '% chargé');
+                },
+                function (error) {
+                    console.error('Erreur lors du chargement du modèle:', error);
                 }
-            }
+            );
         }
 
         function initScene(canvasId) {
@@ -749,7 +647,7 @@
             // Création du plat
             const dishGroup = new THREE.Group();
             const config = dishConfigs[canvasId];
-            createProfessionalDish(dishGroup, config.colors, canvasId);
+            createProfessionalDish(dishGroup, config, canvasId);
             
             scene.add(dishGroup);
 
@@ -785,163 +683,69 @@
             }
         }
 
-        // Fonction pour vérifier le support WebXR
-        async function checkXRSupport() {
+        // Fonction pour vérifier le support WebXR et Quick Look
+        async function checkARSupport() {
+            // Détection iOS
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+            
+            if (isIOS) {
+                // Vérifier si Quick Look est disponible
+                if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.quickLook) {
+                    return 'quicklook';
+                }
+                showNotification('Votre version d\'iOS ne supporte pas la réalité augmentée. Mettez à jour votre appareil.');
+                return false;
+            }
+
+            // Pour les autres appareils, vérifier WebXR
             if (!navigator.xr) {
-                showNotification('WebXR n\'est pas disponible dans votre navigateur. Veuillez utiliser Chrome sur Android ou Safari sur iOS.');
+                showNotification('WebXR n\'est pas disponible dans votre navigateur. Veuillez utiliser Chrome sur Android.');
                 return false;
             }
 
             try {
                 const isSupported = await navigator.xr.isSessionSupported('immersive-ar');
                 if (!isSupported) {
-                    showNotification('La réalité augmentée n\'est pas supportée sur votre appareil. Assurez-vous d\'utiliser un appareil mobile avec une caméra.');
+                    showNotification('La réalité augmentée n\'est pas supportée sur votre appareil.');
                     return false;
                 }
-
-                // Vérifier si nous sommes sur un appareil mobile
-                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-                if (!isMobile) {
-                    showNotification('La réalité augmentée nécessite un appareil mobile avec une caméra. Veuillez utiliser un smartphone ou une tablette.');
-                    return false;
-                }
-
-                return true;
+                return 'webxr';
             } catch (error) {
-                console.error('Erreur lors de la vérification du support WebXR:', error);
+                console.error('Erreur lors de la vérification du support AR:', error);
                 showNotification('Erreur lors de la vérification du support AR: ' + error.message);
                 return false;
             }
         }
 
-        // Fonction pour initialiser la session AR
-        async function initARSession() {
-            try {
-                const session = await navigator.xr.requestSession('immersive-ar', {
-                    requiredFeatures: ['hit-test', 'dom-overlay'],
-                    domOverlay: { root: document.getElementById('arModal') }
-                });
-
-                const canvas = document.createElement('canvas');
-                const gl = canvas.getContext('webgl', { xrCompatible: true });
-                
-                const renderer = new THREE.WebGLRenderer({ 
-                    canvas: canvas, 
-                    context: gl,
-                    antialias: true,
-                    alpha: true
-                });
-                renderer.setPixelRatio(window.devicePixelRatio);
-                renderer.setSize(window.innerWidth, window.innerHeight);
-                renderer.xr.enabled = true;
-
-                const scene = new THREE.Scene();
-                const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
-
-                // Éclairage pour la scène AR
-                const ambientLight = new THREE.AmbientLight(0x404040, 0.4);
-                scene.add(ambientLight);
-
-                const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-                directionalLight.position.set(0, 1, 0);
-                scene.add(directionalLight);
-
-                // Ajouter le modèle 3D actuel à la scène AR
-                if (currentARModel) {
-                    scene.add(currentARModel.clone());
-                }
-
-                // Gestionnaire de clic pour le placement du modèle
-                let reticle = null;
-                const controller = renderer.xr.getController(0);
-                controller.addEventListener('select', onSelect);
-                scene.add(controller);
-
-                // Créer le réticule
-                const geometry = new THREE.RingGeometry(0.15, 0.2, 32).rotateX(-Math.PI / 2);
-                const material = new THREE.MeshBasicMaterial({ color: 0xffffff });
-                reticle = new THREE.Mesh(geometry, material);
-                reticle.matrixAutoUpdate = false;
-                reticle.visible = false;
-                scene.add(reticle);
-
-                // Fonction de sélection
-                function onSelect() {
-                    if (reticle.visible) {
-                        const position = new THREE.Vector3();
-                        reticle.getWorldPosition(position);
-                        if (currentARModel) {
-                            const model = currentARModel.clone();
-                            model.position.copy(position);
-                            scene.add(model);
-                        }
-                    }
-                }
-
-                // Hit testing
-                const hitTestSourceRequested = false;
-                const hitTestSource = null;
-
-                function onHitTestResultReady(hitTestResults) {
-                    if (hitTestResults.length > 0) {
-                        const hit = hitTestResults[0];
-                        const pose = hit.getPose(referenceSpace);
-                        reticle.visible = true;
-                        reticle.matrix.fromArray(pose.transform.matrix);
-                    } else {
-                        reticle.visible = false;
-                    }
-                }
-
-                function onHitTestResultEmpty() {
-                    reticle.visible = false;
-                }
-
-                // Boucle de rendu
-                renderer.setAnimationLoop(() => {
-                    renderer.render(scene, camera);
-                });
-
-                session.addEventListener('end', () => {
-                    renderer.setAnimationLoop(null);
-                    renderer.dispose();
-                });
-
-            } catch (error) {
-                console.error('Erreur lors de l\'initialisation de la session AR:', error);
-                showNotification('Erreur lors de l\'initialisation de la réalité augmentée');
-            }
-        }
-
-        function showNotification(message) {
-            const notification = document.createElement('div');
-            notification.innerHTML = `
-                <div style="position: fixed; top: 2rem; right: 2rem; background: #2C2C2C; color: white; padding: 1rem 1.5rem; border-radius: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); z-index: 10000; max-width: 300px;">
-                    <h4 style="margin: 0 0 0.5rem 0; font-family: 'Playfair Display', serif;">Notification</h4>
-                    <p style="margin: 0; font-size: 0.9rem; line-height: 1.4;">${message}</p>
-                </div>
-            `;
-            document.body.appendChild(notification);
-            setTimeout(() => notification.remove(), 5000);
-        }
-
         async function launchAR() {
             try {
-                const isSupported = await checkXRSupport();
-                if (!isSupported) {
+                const arSupport = await checkARSupport();
+                
+                if (!arSupport) {
                     return;
                 }
 
-                // Demander la permission d'accès à la caméra
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                    stream.getTracks().forEach(track => track.stop()); // Arrêter le flux immédiatement
-                } catch (error) {
-                    showNotification('L\'accès à la caméra est nécessaire pour la réalité augmentée. Veuillez autoriser l\'accès à la caméra.');
-                    return;
+                if (arSupport === 'quicklook') {
+                    // Pour iOS, utiliser Quick Look avec le fichier USDZ
+                    const canvasId = Object.keys(scenes).find(key => dishConfigs[key].name === document.getElementById('arDishName').textContent);
+                    if (canvasId && dishConfigs[canvasId]) {
+                        const modelUrl = dishConfigs[canvasId].usdzPath;
+                        const anchor = document.createElement('a');
+                        anchor.setAttribute('rel', 'ar');
+                        anchor.setAttribute('href', modelUrl);
+                        anchor.click();
+                    }
+                } else {
+                    // Pour les autres appareils, utiliser WebXR
+                    try {
+                        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                        stream.getTracks().forEach(track => track.stop());
+                    } catch (error) {
+                        showNotification('L\'accès à la caméra est nécessaire pour la réalité augmentée.');
+                        return;
+                    }
+                    await initARSession();
                 }
-
-                await initARSession();
             } catch (error) {
                 console.error('Erreur lors du lancement de l\'AR:', error);
                 showNotification('Erreur lors du lancement de la réalité augmentée: ' + error.message);
@@ -958,8 +762,16 @@
                 currentARModel = scenes[canvasId].dishGroup;
             }
             
-            modal.style.display = 'flex';
-            setTimeout(() => modal.classList.add('active'), 10);
+            // Vérifier si nous sommes sur iOS
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+            if (isIOS) {
+                // Sur iOS, lancer directement Quick Look
+                launchAR();
+            } else {
+                // Sur les autres appareils, afficher la modal
+                modal.style.display = 'flex';
+                setTimeout(() => modal.classList.add('active'), 10);
+            }
         }
 
         function closeAR() {
