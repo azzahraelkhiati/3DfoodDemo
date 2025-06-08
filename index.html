@@ -8,6 +8,7 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/libs/draco/DRACOLoader.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -410,12 +411,7 @@
         }
 
         .loading-progress {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            height: 4px;
-            background: var(--primary-gold);
-            transition: width 0.3s ease;
+            display: none;
         }
 
         .loading-message {
@@ -447,7 +443,7 @@
                 <div class="dish-header">
                     <div class="dish-title">
                         Bœuf Wellington
-                        <span class="dish-price">48€</span>
+                        <span class="dish-price">48$</span>
                     </div>
                     <p class="dish-description">
                         Filet de bœuf noble enrobé de duxelles de champignons sauvages et pâte feuilletée dorée, 
@@ -469,7 +465,7 @@
                 <div class="dish-header">
                     <div class="dish-title">
                         Homard Thermidor
-                        <span class="dish-price">65€</span>
+                        <span class="dish-price">65$</span>
                     </div>
                     <p class="dish-description">
                         Homard breton gratiné au cognac et crème normande, rehaussé d'une pointe de caviar 
@@ -491,7 +487,7 @@
                 <div class="dish-header">
                     <div class="dish-title">
                         Soufflé Grand Marnier
-                        <span class="dish-price">22€</span>
+                        <span class="dish-price">22$</span>
                     </div>
                     <p class="dish-description">
                         Soufflé délicat au Grand Marnier avec cœur coulant à l'orange confite, 
@@ -513,7 +509,7 @@
                 <div class="dish-header">
                     <div class="dish-title">
                         Saumon Gravlax
-                        <span class="dish-price">38€</span>
+                        <span class="dish-price">38$</span>
                     </div>
                     <p class="dish-description">
                         Saumon sauvage mariné aux herbes nordiques, purée de petits pois à la menthe fraîche 
@@ -567,23 +563,23 @@
 
         const dishConfigs = {
             'canvas1': {
-                modelPath: './assets/models/DexH- birthday cake - thekitchenfairy icing chocolate drizzle pudding.glb',
-                usdzPath: './assets/models/DexH- birthday cake - thekitchenfairy icing chocolate drizzle pudding.glb.usdz',
+                modelPath: './assets/models/2025-06-07.glb',
+                usdzPath: './assets/models/2025-06-07.glb.usdz',
                 name: 'Bœuf Wellington'
             },
             'canvas2': {
-                modelPath: './assets/models/DexH- birthday cake - thekitchenfairy icing chocolate drizzle pudding.glb',
-                usdzPath: './assets/models/DexH- birthday cake - thekitchenfairy icing chocolate drizzle pudding.glb.usdz',
+                modelPath: './assets/models/2025-06-07.glb',
+                usdzPath: './assets/models/2025-06-07.glb.usdz',
                 name: 'Homard Thermidor'
             },
             'canvas3': {
-                modelPath: './assets/models/DexH- birthday cake - thekitchenfairy icing chocolate drizzle pudding.glb',
-                usdzPath: './assets/models/DexH- birthday cake - thekitchenfairy icing chocolate drizzle pudding.glb.usdz',
+                modelPath: './assets/models/2025-06-07.glb',
+                usdzPath: './assets/models/2025-06-07.glb.usdz',
                 name: 'Soufflé Grand Marnier'
             },
             'canvas4': {
-                modelPath: './assets/models/DexH- birthday cake - thekitchenfairy icing chocolate drizzle pudding.glb',
-                usdzPath: './assets/models/DexH- birthday cake - thekitchenfairy icing chocolate drizzle pudding.glb.usdz',
+                modelPath: './assets/models/2025-06-07.glb',
+                usdzPath: './assets/models/2025-06-07.glb.usdz',
                 name: 'Saumon Gravlax'
             }
         };
@@ -608,7 +604,7 @@
                     return;
                 }
 
-                const modelPath = './assets/models/DexH- birthday cake - thekitchenfairy icing chocolate drizzle pudding.glb';
+                const modelPath = './assets/models/2025-06-07.glb';
                 
                 // Vérifier la taille du fichier
                 const fileSize = await checkFileSize(modelPath);
@@ -617,7 +613,6 @@
                 }
 
                 const loader = new THREE.GLTFLoader();
-                loader.setDRACOLoader(new THREE.DRACOLoader().setDecoderPath('https://www.gstatic.com/draco/v1/decoders/'));
                 
                 loader.load(
                     modelPath,
@@ -634,11 +629,6 @@
                                 if (node.geometry) {
                                     node.geometry.computeBoundingSphere();
                                     node.geometry.computeBoundingBox();
-                                    // Réduire la qualité si nécessaire
-                                    if (node.geometry.attributes.position.count > 10000) {
-                                        node.geometry = node.geometry.clone();
-                                        node.geometry.setDrawRange(0, 10000);
-                                    }
                                 }
                             }
                         });
@@ -661,16 +651,7 @@
 
         // Fonction pour mettre à jour la progression du chargement
         function updateLoadingProgress(progress) {
-            const containers = document.querySelectorAll('.viewer-container');
-            containers.forEach(container => {
-                let progressBar = container.querySelector('.loading-progress');
-                if (!progressBar) {
-                    progressBar = document.createElement('div');
-                    progressBar.className = 'loading-progress';
-                    container.appendChild(progressBar);
-                }
-                progressBar.style.width = `${progress}%`;
-            });
+            // Ne rien faire, la barre de progression est supprimée
         }
 
         function createProfessionalDish(dishGroup, config, canvasId) {
@@ -794,30 +775,19 @@
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
             
             if (isIOS) {
-                // Vérifier si Quick Look est disponible
-                if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.quickLook) {
-                    return 'quicklook';
-                }
-                showNotification('Votre version d\'iOS ne supporte pas la réalité augmentée. Mettez à jour votre appareil.');
-                return false;
+                return 'quicklook';
             }
 
             // Pour les autres appareils, vérifier WebXR
             if (!navigator.xr) {
-                showNotification('WebXR n\'est pas disponible dans votre navigateur. Veuillez utiliser Chrome sur Android.');
                 return false;
             }
 
             try {
                 const isSupported = await navigator.xr.isSessionSupported('immersive-ar');
-                if (!isSupported) {
-                    showNotification('La réalité augmentée n\'est pas supportée sur votre appareil.');
-                    return false;
-                }
-                return 'webxr';
+                return isSupported ? 'webxr' : false;
             } catch (error) {
                 console.error('Erreur lors de la vérification du support AR:', error);
-                showNotification('Erreur lors de la vérification du support AR: ' + error.message);
                 return false;
             }
         }
@@ -827,50 +797,80 @@
                 const arSupport = await checkARSupport();
                 
                 if (!arSupport) {
+                    showNotification('Votre appareil ne supporte pas la réalité augmentée');
                     return;
                 }
 
                 if (arSupport === 'quicklook') {
-                    // Pour iOS, utiliser Quick Look avec le fichier USDZ
-                    const canvasId = Object.keys(scenes).find(key => dishConfigs[key].name === document.getElementById('arDishName').textContent);
-                    if (canvasId && dishConfigs[canvasId]) {
-                        const modelUrl = dishConfigs[canvasId].usdzPath;
-                        
-                        // Vérifier si le fichier USDZ existe et sa taille
-                        try {
-                            const response = await fetch(modelUrl, { method: 'HEAD' });
-                            if (!response.ok) {
-                                throw new Error('Fichier USDZ non trouvé');
-                            }
-                            const size = parseInt(response.headers.get('content-length'));
-                            if (size > 20 * 1024 * 1024) { // Plus de 20MB
-                                showNotification('Le fichier AR est très volumineux. L\'ouverture peut prendre un certain temps.');
-                            }
-                        } catch (error) {
-                            console.error('Erreur lors de la vérification du fichier USDZ:', error);
-                            showNotification('Erreur lors de l\'accès au fichier AR. Veuillez réessayer.');
-                            return;
-                        }
-
-                        const anchor = document.createElement('a');
-                        anchor.setAttribute('rel', 'ar');
-                        anchor.setAttribute('href', modelUrl);
-                        anchor.click();
-                    }
+                    // Pour iOS, utiliser Quick Look
+                    const modelUrl = './assets/models/2025-06-07.glb.usdz';
+                    
+                    // Créer un lien AR
+                    const link = document.createElement('a');
+                    link.setAttribute('rel', 'ar');
+                    link.setAttribute('href', modelUrl);
+                    
+                    // Ajouter des attributs pour une meilleure expérience
+                    link.setAttribute('ar-scale', 'fixed');
+                    link.setAttribute('ar-placement', 'floor');
+                    
+                    // Cliquer sur le lien
+                    link.click();
                 } else {
                     // Pour les autres appareils, utiliser WebXR
                     try {
-                        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                        stream.getTracks().forEach(track => track.stop());
+                        const session = await navigator.xr.requestSession('immersive-ar', {
+                            requiredFeatures: ['hit-test'],
+                            domOverlay: { root: document.getElementById('arModal') }
+                        });
+
+                        const canvas = document.createElement('canvas');
+                        const gl = canvas.getContext('webgl', { xrCompatible: true });
+                        
+                        const renderer = new THREE.WebGLRenderer({ 
+                            canvas: canvas, 
+                            context: gl,
+                            antialias: true,
+                            alpha: true
+                        });
+                        renderer.setPixelRatio(window.devicePixelRatio);
+                        renderer.setSize(window.innerWidth, window.innerHeight);
+                        renderer.xr.enabled = true;
+
+                        const scene = new THREE.Scene();
+                        const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
+
+                        // Éclairage
+                        const ambientLight = new THREE.AmbientLight(0x404040, 0.4);
+                        scene.add(ambientLight);
+
+                        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+                        directionalLight.position.set(0, 1, 0);
+                        scene.add(directionalLight);
+
+                        // Ajouter le modèle
+                        if (currentARModel) {
+                            scene.add(currentARModel.clone());
+                        }
+
+                        // Boucle de rendu
+                        renderer.setAnimationLoop(() => {
+                            renderer.render(scene, camera);
+                        });
+
+                        session.addEventListener('end', () => {
+                            renderer.setAnimationLoop(null);
+                            renderer.dispose();
+                        });
+
                     } catch (error) {
-                        showNotification('L\'accès à la caméra est nécessaire pour la réalité augmentée.');
-                        return;
+                        console.error('Erreur lors de l\'initialisation de la session AR:', error);
+                        showNotification('Erreur lors de l\'initialisation de la réalité augmentée');
                     }
-                    await initARSession();
                 }
             } catch (error) {
                 console.error('Erreur lors du lancement de l\'AR:', error);
-                showNotification('Erreur lors du lancement de la réalité augmentée: ' + error.message);
+                showNotification('Erreur lors du lancement de la réalité augmentée');
             }
         }
 
@@ -884,16 +884,8 @@
                 currentARModel = scenes[canvasId].dishGroup;
             }
             
-            // Vérifier si nous sommes sur iOS
-            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-            if (isIOS) {
-                // Sur iOS, lancer directement Quick Look
-                launchAR();
-            } else {
-                // Sur les autres appareils, afficher la modal
-                modal.style.display = 'flex';
-                setTimeout(() => modal.classList.add('active'), 10);
-            }
+            // Lancer directement l'AR
+            launchAR();
         }
 
         function closeAR() {
